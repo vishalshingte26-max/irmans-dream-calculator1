@@ -1,5 +1,8 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import pandas as pd
+from datetime import datetime
+import os
 
 st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 
@@ -8,226 +11,154 @@ st.title("IRMAN'S DREAM CALCULATOR")
 
 st.markdown(
     """
-This tool helps you understand how income, health, environment, family choices
-and time interact with your life goals.
+This tool helps you understand where life stress comes from  
+and how your money can be allocated in the best possible way.
 
-All calculations adjust for inflation and are based on a planning horizon you choose.
+Step 1 diagnoses stress  
+Step 2 optimizes your plan  
+You can download your report at the end
 """
 )
 
 st.markdown("---")
 
 # ---------------- TIME HORIZON ----------------
-st.subheader("Planning horizon")
+horizon_years = st.slider("Planning horizon (years)", 5, 30, 10)
 
-horizon_years = st.slider(
-    "For how many years are you planning your life goals?",
-    5, 30, 10
-)
-
-st.markdown("---")
-
-# ---------------- INCOME DETAILS ----------------
-st.subheader("Income details")
-
-salary = st.number_input(
-    "Your current monthly income (₹)",
-    min_value=0,
-    step=5000
-)
-
-nominal_growth = st.slider(
-    "Expected annual salary growth percentage (before inflation)",
-    0, 15, 8
-)
-
-inflation_rate = 4
-real_growth = max(nominal_growth - inflation_rate, 0)
-
-st.info(f"After adjusting for 4% inflation, real income growth assumed: {real_growth}% per year")
-
-expenses = st.number_input(
-    "Your unavoidable monthly living expenses (₹)",
-    min_value=0,
-    step=2000
-)
+# ---------------- INCOME ----------------
+salary = st.number_input("Monthly income (₹)", min_value=0, step=5000)
+expenses = st.number_input("Unavoidable monthly expenses (₹)", min_value=0, step=2000)
 
 if salary <= 0:
-    st.warning("Please enter income to continue.")
+    st.warning("Please enter income")
     st.stop()
 
 base_surplus = salary - expenses
-
 if base_surplus <= 0:
-    st.error("Expenses exceed income. No surplus available.")
+    st.error("Expenses exceed income")
     st.stop()
 
-st.success(f"Current monthly surplus: ₹{base_surplus:,.0f}")
-
-st.markdown("---")
-
 # ---------------- LIFE ASSUMPTIONS ----------------
-st.subheader("Life and lifestyle assumptions (penalties are shown clearly)")
+career = st.selectbox("Career satisfaction", ["High", "Moderate", "Low"])
+health = st.selectbox("Health routine", ["Good", "Irregular", "Poor"])
+work = st.selectbox("Work style", ["Balanced", "Aggressive", "Frequent burnout"])
 
-career = st.selectbox(
-    "Career satisfaction and stability",
-    [
-        "High satisfaction (0% income penalty)",
-        "Moderate satisfaction (5% income penalty)",
-        "Low satisfaction (12% income penalty)"
-    ]
-)
-
-health_priority = st.selectbox(
-    "Health and exercise routine",
-    [
-        "Regular exercise and good sleep (0% penalty)",
-        "Irregular routine (5% income penalty)",
-        "Poor health habits (10% income penalty)"
-    ]
-)
-
-aqi = st.selectbox(
-    "Air quality of your living environment",
-    [
-        "Good AQI most of the year (0% expense penalty)",
-        "Moderate AQI (4% expense penalty)",
-        "Poor AQI most of the year (8% expense penalty)"
-    ]
-)
-
-family_setup = st.selectbox(
-    "Living arrangement",
-    [
-        "Living with family (5% lower expenses)",
-        "Living away from family (5% higher expenses)"
-    ]
-)
-
-work_style = st.selectbox(
-    "Work pattern",
-    [
-        "Balanced and sustainable (0% penalty)",
-        "Aggressive long hours (8% income boost, burnout risk)",
-        "Frequent burnout cycles (12% income penalty)"
-    ]
-)
-
-st.markdown("---")
-
-# ---------------- PENALTIES ----------------
-income_penalty = 0.0
-expense_penalty = 0.0
-
-if "Moderate" in career:
+income_penalty = 0
+if career == "Moderate":
     income_penalty += 0.05
-elif "Low" in career:
+elif career == "Low":
     income_penalty += 0.12
 
-if "Irregular" in health_priority:
+if health == "Irregular":
     income_penalty += 0.05
-elif "Poor" in health_priority:
+elif health == "Poor":
     income_penalty += 0.10
 
-if "Moderate AQI" in aqi:
-    expense_penalty += 0.04
-elif "Poor AQI" in aqi:
-    expense_penalty += 0.08
-
-if "with family" in family_setup:
-    expense_penalty -= 0.05
-elif "away" in family_setup:
-    expense_penalty += 0.05
-
-if "Aggressive" in work_style:
+if work == "Aggressive":
     income_penalty -= 0.08
-elif "burnout" in work_style.lower():
+elif work == "Frequent burnout":
     income_penalty += 0.12
 
-adjusted_income = salary * (1 - income_penalty)
-adjusted_expenses = expenses * (1 + expense_penalty)
-adjusted_surplus = adjusted_income - adjusted_expenses
-
-st.subheader("Net impact of your choices")
-
-st.write(f"Total income penalty applied: {income_penalty*100:.1f}%")
-st.write(f"Total expense penalty applied: {expense_penalty*100:.1f}%")
-st.info(f"Usable monthly surplus after adjustments: ₹{adjusted_surplus:,.0f}")
-
-st.markdown("---")
+adjusted_surplus = base_surplus * (1 - income_penalty)
 
 # ---------------- GOALS ----------------
-st.subheader("Life goals")
-
-house = st.number_input("House or flat purchase (₹)", 0, step=100000)
-land = st.number_input("Land purchase (₹)", 0, step=100000)
-vehicle = st.number_input("Vehicle purchase (₹)", 0, step=50000)
-
-asset_goal = house + land + vehicle
-
-goals = {}
-goals["Asset creation"] = asset_goal
-goals["Emergency fund"] = st.number_input("Emergency fund target (₹)", 0, step=50000)
-goals["Education or loan repayment"] = st.number_input("Education or loan repayment target (₹)", 0, step=50000)
-goals["Marriage and family setup"] = st.number_input("Marriage and family setup target (₹)", 0, step=50000)
-goals["Social contribution"] = st.number_input("Social contribution target (₹)", 0, step=20000)
-
-st.markdown("---")
+goals = {
+    "Asset creation": st.number_input("Assets goal ₹", 0, step=100000),
+    "Emergency fund": st.number_input("Emergency fund ₹", 0, step=50000),
+    "Education / loan": st.number_input("Education or loan ₹", 0, step=50000),
+    "Marriage & family": st.number_input("Marriage & family ₹", 0, step=50000),
+    "Social contribution": st.number_input("Social contribution ₹", 0, step=20000),
+}
 
 # ---------------- IMPORTANCE ----------------
-st.subheader("If delayed, how stressful would each goal be?")
-
 weights = {}
 for g in goals:
-    weights[g] = st.slider(g, 1, 5, 3)
+    weights[g] = st.slider(f"Importance of {g}", 1, 5, 3)
 
-st.markdown("---")
+# ---------------- STAGE 1 ----------------
+if st.button("1️⃣ Show stress diagnosis"):
 
-# ---------------- RESULTS ----------------
-if st.button("Show results"):
-
-    feasible_capacity = max(adjusted_surplus * 12 * horizon_years, 0)
+    feasible_capacity = adjusted_surplus * 12 * horizon_years
     equal_share = feasible_capacity / len(goals)
 
-    deviations = {}
-    weighted_deviation = {}
+    stress_before = {}
+    total_stress_before = 0
 
     for g in goals:
         gap = max(goals[g] - equal_share, 0)
-        deviations[g] = gap
-        weighted_deviation[g] = gap * weights[g]
+        stress_before[g] = gap * weights[g]
+        total_stress_before += stress_before[g]
 
-    st.subheader("Where pressure appears")
-
-    for g in deviations:
-        if deviations[g] > 0:
-            monthly_gap = deviations[g] / (horizon_years * 12)
-            st.write(
-                f"{g} is short by ₹{deviations[g]:,.0f}, "
-                f"or ₹{monthly_gap:,.0f} per month"
-            )
+    st.session_state["feasible_capacity"] = feasible_capacity
+    st.session_state["stress_before"] = stress_before
+    st.session_state["total_stress_before"] = total_stress_before
 
     fig, ax = plt.subplots()
-    ax.bar(weighted_deviation.keys(), weighted_deviation.values())
-    ax.set_ylabel("Stress level")
-    ax.set_title("Pressure across life goals")
+    ax.bar(stress_before.keys(), stress_before.values())
+    ax.set_title("Stress before optimization")
     plt.xticks(rotation=30)
     st.pyplot(fig)
 
-    st.markdown("---")
+# ---------------- STAGE 2 ----------------
+if st.button("2️⃣ Optimize my plan"):
 
-    # ---------------- TRADE OFF OPTIONS ----------------
-    st.subheader("Trade off options")
+    if "feasible_capacity" not in st.session_state:
+        st.warning("Run diagnosis first")
+        st.stop()
 
-    for g in deviations:
-        if deviations[g] > 0:
-            monthly_gap = deviations[g] / (horizon_years * 12)
-            percent_of_goal = (monthly_gap * 12 * horizon_years / goals[g]) * 100 if goals[g] > 0 else 0
-            extra_years = deviations[g] / (adjusted_surplus * 12) if adjusted_surplus > 0 else 0
+    remaining = st.session_state["feasible_capacity"]
+    optimized = {}
+    stress_after = {}
+    total_stress_after = 0
 
-            st.markdown(f"**{g}**")
-            st.write(f"Unmet amount per month: ₹{monthly_gap:,.0f}")
-            st.write(f"Reducing this goal by {percent_of_goal:.1f}% will fully remove this gap")
-            st.write(f"Increasing planning horizon by about {extra_years:.1f} years will also remove the gap")
-            st.write("You may also offset this gap by reallocating savings from lower priority goals")
+    sorted_goals = sorted(goals, key=lambda g: weights[g], reverse=True)
 
+    for g in sorted_goals:
+        alloc = min(goals[g], remaining)
+        optimized[g] = alloc
+        shortfall = goals[g] - alloc
+        stress_after[g] = shortfall * weights[g]
+        total_stress_after += stress_after[g]
+        remaining -= alloc
+
+    improvement = (
+        (st.session_state["total_stress_before"] - total_stress_after)
+        / st.session_state["total_stress_before"] * 100
+        if st.session_state["total_stress_before"] > 0 else 0
+    )
+
+    st.success(f"Life stress reduced by {improvement:.1f}%")
+
+    # ---------------- SAVE DATA ----------------
+    record = {
+        "timestamp": datetime.now(),
+        "salary": salary,
+        "expenses": expenses,
+        "adjusted_surplus": adjusted_surplus,
+        "horizon_years": horizon_years,
+        "stress_before": st.session_state["total_stress_before"],
+        "stress_after": total_stress_after,
+        "improvement_percent": improvement
+    }
+
+    for g in goals:
+        record[f"goal_{g}"] = goals[g]
+        record[f"weight_{g}"] = weights[g]
+        record[f"allocated_{g}"] = optimized[g]
+
+    df = pd.DataFrame([record])
+
+    if not os.path.exists("responses.csv"):
+        df.to_csv("responses.csv", index=False)
+    else:
+        df.to_csv("responses.csv", mode="a", header=False, index=False)
+
+    # ---------------- DOWNLOAD ----------------
+    st.subheader("Download your report")
+
+    st.download_button(
+        label="Download my life plan report",
+        data=df.to_csv(index=False),
+        file_name="my_life_plan_report.csv",
+        mime="text/csv"
+    )
