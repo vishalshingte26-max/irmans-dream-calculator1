@@ -3,116 +3,84 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
 import os
+import io
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+
+# ================= PAGE CONFIG =================
 st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 
 st.title("IRMAN'S DREAM CALCULATOR")
 
 st.markdown("""
-This tool helps you understand **how everyday life choices quietly affect your long-term goals**.
+A life planning tool that shows **where stress comes from**  
+and **how optimization can reduce it**.
 
-You will:
-1. Answer simple life questions  
-2. See where stress comes from  
-3. Ask the model to optimally allocate your money  
-4. See how much stress the model reduces  
-
-Nothing is forced. The model only shows trade-offs.
+The model does not force decisions.  
+It only shows trade-offs clearly.
 """)
 
 st.markdown("---")
 
-# =========================
-# PLANNING HORIZON
-# =========================
-st.subheader("1️⃣ Time horizon")
+# ================= TIME HORIZON =================
+st.subheader("1️⃣ Planning horizon")
+st.caption("More years reduce pressure. Fewer years increase stress.")
 
-st.markdown("""
-**Why this matters:**  
-More time reduces pressure. Short timelines increase stress.
-""")
+horizon_years = st.slider("For how many years are you planning your life goals?", 5, 30, 10)
 
-horizon_years = st.slider(
-    "For how many years are you planning your major life goals?",
-    5, 30, 10
-)
+# ================= INCOME =================
+st.subheader("2️⃣ Income and unavoidable expenses")
 
-st.markdown("---")
-
-# =========================
-# INCOME & EXPENSES
-# =========================
-st.subheader("2️⃣ Income and basic expenses")
-
-st.markdown("""
-**Income** is what supports all dreams.  
-**Unavoidable expenses** cannot be compromised (rent, food, utilities).
-""")
-
-salary = st.number_input("Your monthly income (₹)", min_value=0, step=5000)
-expenses = st.number_input("Your unavoidable monthly expenses (₹)", min_value=0, step=2000)
+salary = st.number_input("Monthly income (₹)", min_value=0, step=5000)
+expenses = st.number_input("Monthly unavoidable expenses (₹)", min_value=0, step=2000)
 
 if salary <= 0:
-    st.warning("Income is required to continue")
+    st.warning("Income is required")
     st.stop()
 
 base_surplus = salary - expenses
-
 if base_surplus <= 0:
-    st.error("Your expenses exceed income. No surplus is available for goals.")
+    st.error("Expenses exceed income. No surplus available.")
     st.stop()
 
-st.success(f"Money available for goals every month: ₹{base_surplus:,.0f}")
+st.success(f"Monthly money available for goals: ₹{base_surplus:,.0f}")
 
-st.markdown("---")
+# ================= LIFE CONDITIONS =================
+st.subheader("3️⃣ Life conditions (explained clearly)")
 
-# =========================
-# LIFE CONDITIONS
-# =========================
-st.subheader("3️⃣ Life conditions (these quietly change money availability)")
-
-st.markdown("""
-These questions reflect **real-world frictions**.
-The model explains every penalty clearly.
-""")
-
-# Job stability
 job = st.selectbox(
-    "Job stability and satisfaction",
+    "Job stability",
     [
         "Stable and satisfying (no penalty)",
         "Somewhat unstable (5% income loss)",
         "Highly unstable or stressful (12% income loss)"
     ]
 )
+st.caption("Unstable jobs reduce savings due to uncertainty and switching costs.")
 
-st.caption("Unstable jobs reduce effective savings due to stress, switching costs and uncertainty.")
-
-# Health
 health = st.selectbox(
-    "Health and daily routine",
+    "Health routine",
     [
-        "Good sleep and regular exercise (no penalty)",
+        "Good sleep and exercise (no penalty)",
         "Irregular routine (5% income loss)",
         "Poor health habits (10% income loss)"
     ]
 )
+st.caption("Poor health increases medical costs and reduces productivity.")
 
-st.caption("Poor health increases medical costs and reduces productivity over time.")
-
-# AQI
 aqi = st.selectbox(
-    "Air quality where you live",
+    "Air quality",
     [
-        "Mostly good AQI (no extra expense)",
+        "Mostly good AQI (no penalty)",
         "Moderate AQI (4% expense increase)",
         "Poor AQI most of the year (8% expense increase)"
     ]
 )
+st.caption("Poor air quality leads to higher health-related expenses.")
 
-st.caption("Poor air quality leads to higher medical and lifestyle expenses.")
-
-# Family setup
 family = st.selectbox(
     "Living arrangement",
     [
@@ -120,24 +88,19 @@ family = st.selectbox(
         "Living away from family (5% higher expenses)"
     ]
 )
+st.caption("Living alone usually increases rent, food, and support costs.")
 
-st.caption("Living alone usually increases rent, food and support costs.")
-
-# Work style
 work = st.selectbox(
     "Work style",
     [
         "Balanced and sustainable (no penalty)",
-        "Aggressive long hours (8% short-term income boost)",
+        "Aggressive long hours (8% income boost)",
         "Frequent burnout cycles (12% income loss)"
     ]
 )
+st.caption("Burnout reduces long-term earning capacity.")
 
-st.caption("Overwork may boost income short-term but burnout reduces long-term savings.")
-
-# =========================
-# APPLY IMPACTS
-# =========================
+# ================= APPLY PENALTIES =================
 income_penalty = 0
 expense_penalty = 0
 
@@ -170,46 +133,27 @@ adjusted_surplus = base_surplus * (1 - income_penalty) * (1 - expense_penalty)
 
 st.info(f"Usable monthly surplus after life effects: ₹{adjusted_surplus:,.0f}")
 
-st.markdown("---")
-
-# =========================
-# GOALS
-# =========================
-st.subheader("4️⃣ Your life goals")
-
-st.markdown("""
-Enter the **total amount** you want to spend on each goal over the planning period.
-""")
+# ================= GOALS =================
+st.subheader("4️⃣ Life goals")
 
 goals = {
     "Asset creation": st.number_input("House / land / vehicle (₹)", 0, step=100000),
     "Emergency fund": st.number_input("Emergency fund (₹)", 0, step=50000),
     "Education / loan repayment": st.number_input("Education or loan repayment (₹)", 0, step=50000),
     "Marriage & family setup": st.number_input("Marriage & family setup (₹)", 0, step=50000),
-    "Social contribution": st.number_input("Social contribution / giving (₹)", 0, step=20000),
+    "Social contribution": st.number_input("Social contribution (₹)", 0, step=20000),
 }
 
-# =========================
-# IMPORTANCE
-# =========================
-st.subheader("5️⃣ Importance of each goal")
-
-st.markdown("""
-Importance shows **how stressful it would be if this goal is delayed**.
-
-Higher percentage = higher protection during optimization.
-""")
+# ================= IMPORTANCE =================
+st.subheader("5️⃣ Importance of each goal (%)")
+st.caption("Higher % means more stress if this goal is delayed")
 
 importance = {}
 for g in goals:
-    importance[g] = st.slider(f"{g} importance (%)", 10, 100, 50)
+    importance[g] = st.slider(g, 10, 100, 50)
 
-st.markdown("---")
-
-# =========================
-# STRESS DIAGNOSIS
-# =========================
-if st.button("1️⃣ Show where stress comes from"):
+# ================= STRESS DIAGNOSIS =================
+if st.button("1️⃣ Show stress diagnosis"):
 
     feasible_capacity = adjusted_surplus * 12 * horizon_years
     equal_share = feasible_capacity / len(goals)
@@ -228,38 +172,75 @@ if st.button("1️⃣ Show where stress comes from"):
         "total_stress_before": total_stress_before
     })
 
-    st.subheader("Stress before optimization")
-
-    fig, ax = plt.subplots()
-    ax.bar(stress_before.keys(), stress_before.values())
-    ax.set_ylabel("Stress units")
+    fig1, ax1 = plt.subplots()
+    ax1.bar(stress_before.keys(), stress_before.values())
+    ax1.set_title("Stress before optimization")
     plt.xticks(rotation=30)
-    st.pyplot(fig)
+    st.pyplot(fig1)
 
     st.info(f"Total life stress score: {total_stress_before:,.0f}")
 
-# =========================
-# OPTIMIZATION
-# =========================
+# ================= PDF FUNCTION =================
+def generate_pdf_report(data, goals, importance, optimized, improvement):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("IRMAN'S DREAM CALCULATOR – LIFE PLAN REPORT", styles["Title"]))
+    elements.append(Spacer(1, 20))
+
+    elements.append(Paragraph(f"Planning horizon: {data['years']} years", styles["Normal"]))
+    elements.append(Paragraph(f"Monthly usable surplus: ₹{data['surplus']:,.0f}", styles["Normal"]))
+    elements.append(Paragraph(f"Stress before optimization: {data['before']:,.0f}", styles["Normal"]))
+    elements.append(Paragraph(f"Stress after optimization: {data['after']:,.0f}", styles["Normal"]))
+    elements.append(Paragraph(f"Stress reduced by: {improvement:.1f}%", styles["Normal"]))
+
+    elements.append(Spacer(1, 20))
+
+    table_data = [["Goal", "Target (₹)", "Allocated (₹)", "Allocation %", "Importance %"]]
+    for g in goals:
+        alloc_pct = (optimized[g] / goals[g] * 100) if goals[g] > 0 else 0
+        table_data.append([
+            g,
+            f"{goals[g]:,.0f}",
+            f"{optimized[g]:,.0f}",
+            f"{alloc_pct:.1f}%",
+            f"{importance[g]}%"
+        ])
+
+    table = Table(table_data)
+    table.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 1, colors.grey),
+        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+# ================= OPTIMIZATION =================
 if st.button("2️⃣ Optimize my life plan"):
 
     if "feasible_capacity" not in st.session_state:
         st.warning("Please run stress diagnosis first")
         st.stop()
 
-    feasible_capacity = st.session_state["feasible_capacity"]
+    st.balloons()
+
     MIN_PERCENT = 0.35
+    feasible_capacity = st.session_state["feasible_capacity"]
 
     optimized = {}
     remaining = feasible_capacity
 
-    # Minimum allocation
     for g in goals:
         alloc = min(goals[g] * MIN_PERCENT, remaining)
         optimized[g] = alloc
         remaining -= alloc
 
-    # Priority allocation
     for g in sorted(goals, key=lambda x: importance[x], reverse=True):
         if remaining <= 0:
             break
@@ -280,39 +261,64 @@ if st.button("2️⃣ Optimize my life plan"):
         / st.session_state["total_stress_before"] * 100
     )
 
-    st.subheader("Optimized outcome")
+    st.markdown(
+        f"<h1 style='text-align:center;color:green;'>🎉 Stress Reduced by {improvement:.1f}%</h1>",
+        unsafe_allow_html=True
+    )
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Before Optimization")
+        figb, axb = plt.subplots()
+        axb.bar(st.session_state["stress_before"].keys(), st.session_state["stress_before"].values())
+        plt.xticks(rotation=30)
+        st.pyplot(figb)
+
+    with col2:
+        st.subheader("After Optimization")
+        figa, axa = plt.subplots()
+        axa.bar(stress_after.keys(), stress_after.values())
+        plt.xticks(rotation=30)
+        st.pyplot(figa)
+
+    st.subheader("Optimized allocation summary")
     for g in goals:
-        st.write(
-            f"{g}: ₹{optimized[g]:,.0f} "
-            f"({optimized[g]/goals[g]*100:.1f}% of target)"
-        )
+        st.write(f"{g}: ₹{optimized[g]:,.0f} ({optimized[g]/goals[g]*100:.1f}%)")
 
-    st.success(f"Total life stress reduced by {improvement:.1f}%")
+    consent = st.checkbox("I allow my anonymous data to be stored for academic research")
 
-    # Save data
-    record = {
-        "timestamp": datetime.now(),
-        "stress_before": st.session_state["total_stress_before"],
-        "stress_after": total_stress_after,
-        "improvement_percent": improvement
-    }
-
-    for g in goals:
-        record[f"goal_{g}"] = goals[g]
-        record[f"importance_{g}"] = importance[g]
-        record[f"allocated_{g}"] = optimized[g]
-
-    df = pd.DataFrame([record])
-
-    if not os.path.exists("responses.csv"):
-        df.to_csv("responses.csv", index=False)
-    else:
-        df.to_csv("responses.csv", mode="a", header=False, index=False)
+    pdf_buffer = generate_pdf_report(
+        {
+            "years": horizon_years,
+            "surplus": adjusted_surplus,
+            "before": st.session_state["total_stress_before"],
+            "after": total_stress_after
+        },
+        goals,
+        importance,
+        optimized,
+        improvement
+    )
 
     st.download_button(
-        "Download my optimized life report",
-        df.to_csv(index=False),
-        file_name="my_life_plan_report.csv",
-        mime="text/csv"
+        "📄 Download my optimized life report (PDF)",
+        pdf_buffer,
+        file_name="my_life_plan_report.pdf",
+        mime="application/pdf"
     )
+
+    if consent:
+        record = {
+            "timestamp": datetime.now(),
+            "stress_before": st.session_state["total_stress_before"],
+            "stress_after": total_stress_after,
+            "improvement": improvement
+        }
+        df = pd.DataFrame([record])
+        if not os.path.exists("responses.csv"):
+            df.to_csv("responses.csv", index=False)
+        else:
+            df.to_csv("responses.csv", mode="a", header=False, index=False)
+
+        st.success("Your data has been saved anonymously.")
