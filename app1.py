@@ -322,3 +322,23 @@ if st.button("2️⃣ Optimize my life plan"):
             df.to_csv("responses.csv", mode="a", header=False, index=False)
 
         st.success("Your data has been saved anonymously.")
+st.markdown("---")
+st.subheader("🔐 Admin access (project owner only)")
+
+admin_code = st.text_input(
+    "Enter admin access code to download consented data",
+    type="password"
+)
+
+if admin_code == "irma_admin_2026":
+    if os.path.exists("responses.csv"):
+        with open("responses.csv", "rb") as f:
+            st.download_button(
+                "⬇️ Download all consented responses (CSV)",
+                f,
+                file_name="responses.csv",
+                mime="text/csv"
+            )
+    else:
+        st.info("No consented data available yet.")
+
