@@ -15,7 +15,7 @@ st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 
 st.title("IRMAN'S DREAM CALCULATOR")
 st.markdown(
-    "**A practical life-planning tool that shows how close your income path is to your goals — and how small changes can make it optimal.**"
+    "**A practical life-planning tool that shows how your limited income can be optimally allocated to achieve maximum life goals.**"
 )
 
 st.markdown("---")
@@ -31,50 +31,50 @@ salary = st.number_input("Current monthly income (₹)", min_value=0, step=5000)
 expenses = st.number_input("Monthly unavoidable expenses (₹)", min_value=0, step=2000)
 
 if salary <= 0:
-    st.warning("Please enter your income to continue.")
+    st.warning("Please enter income to continue.")
     st.stop()
 
 base_surplus = salary - expenses
 
-# ================= LIFE CONDITIONS (WITH % IMPACT SHOWN) =================
-st.subheader("3️⃣ Your current life conditions (with impact shown clearly)")
+# ================= LIFE CONDITIONS WITH % =================
+st.subheader("3️⃣ Life conditions (impact shown clearly)")
 
 job = st.selectbox(
     "Job stability (impact on income)",
     [
-        "Stable (0% change)",
-        "Somewhat unstable (−5% income)",
-        "Highly unstable (−12% income)"
+        "Stable (0%)",
+        "Somewhat unstable (−5%)",
+        "Highly unstable (−12%)"
     ]
 )
 
 health = st.selectbox(
     "Health routine (impact on income)",
     [
-        "Good routine (0% change)",
-        "Irregular routine (−5% income)",
-        "Poor health habits (−10% income)"
+        "Good routine (0%)",
+        "Irregular routine (−5%)",
+        "Poor health habits (−10%)"
     ]
 )
 
 family = st.selectbox(
     "Living arrangement (impact on expenses)",
     [
-        "Living with family (−5% expenses)",
-        "Living away from family (+5% expenses)"
+        "Living with family (−5%)",
+        "Living away from family (+5%)"
     ]
 )
 
 work = st.selectbox(
     "Work style (impact on income)",
     [
-        "Balanced & sustainable (0% change)",
-        "Aggressive long hours (+8% income)",
-        "Frequent burnout cycles (−12% income)"
+        "Balanced & sustainable (0%)",
+        "Aggressive long hours (+8%)",
+        "Frequent burnout cycles (−12%)"
     ]
 )
 
-# ================= APPLY LIFE EFFECTS =================
+# ================= APPLY EFFECTS =================
 income_penalty = 0
 expense_penalty = 0
 
@@ -88,7 +88,7 @@ if "−5%" in health:
 elif "−10%" in health:
     income_penalty += 0.10
 
-if "−5% expenses" in family:
+if "−5%" in family:
     expense_penalty -= 0.05
 else:
     expense_penalty += 0.05
@@ -100,16 +100,12 @@ elif "−12%" in work:
 
 adjusted_surplus = base_surplus * (1 - income_penalty) * (1 - expense_penalty)
 
-st.info(
-    f"After considering life conditions, usable monthly surplus becomes **₹{adjusted_surplus:,.0f}**"
-)
+st.info(f"Usable monthly surplus after life effects: ₹{adjusted_surplus:,.0f}")
 
-# ================= SALARY GROWTH WITH INFLATION =================
+# ================= SALARY GROWTH =================
 st.subheader("4️⃣ Income growth assumption")
 
-st.markdown(
-    "We assume your **salary grows at 4% per year**, roughly matching long-term inflation."
-)
+st.markdown("We assume **salary grows at 4% per year**, approximately matching inflation.")
 
 inflation_rate = 0.04
 current_salary = salary
@@ -122,7 +118,7 @@ for year in range(1, horizon_years + 1):
 
 feasible_capacity = sum(yearly_surplus)
 
-st.success(f"Total money realistically available over {horizon_years} years: ₹{feasible_capacity:,.0f}")
+st.success(f"Total money available over {horizon_years} years: ₹{feasible_capacity:,.0f}")
 
 # ================= GOALS =================
 st.subheader("5️⃣ Life goals (total amount required)")
@@ -140,44 +136,66 @@ st.subheader("6️⃣ If this goal is delayed, how uncomfortable would you feel?
 
 importance = {}
 for g in goals:
-    importance[g] = st.slider(
-        g,
-        10,
-        100,
-        50,
-        help="Higher value means you mentally struggle more if this goal is delayed"
-    )
+    importance[g] = st.slider(g, 10, 100, 50)
 
-# ================= DEVIATION DIAGNOSIS =================
+# ================= DEVIATION GRAPH =================
 if st.button("1️⃣ Show deviation diagnosis"):
 
     avg_allocation = feasible_capacity / len(goals)
-
-    deviation = {}
-    for g in goals:
-        deviation[g] = goals[g] - avg_allocation
-
+    deviation = {g: goals[g] - avg_allocation for g in goals}
     max_dev_goal = max(deviation, key=lambda x: abs(deviation[x]))
 
-    st.session_state["capacity"] = feasible_capacity
-    st.session_state["deviation"] = deviation
+    fig, ax = plt.subplots(figsize=(8, 5))
 
-    fig, ax = plt.subplots()
-    ax.bar(deviation.keys(), deviation.values())
-    ax.axhline(0)
-    ax.set_ylabel("Deviation from average allocation (₹)")
-    ax.set_title("Where your money demand deviates from an average plan")
+    bars = ax.bar(goals.keys(), goals.values())
+    ax.axhline(avg_allocation)  # SOLID LINE (NO DASHES)
+
+    ax.set_ylabel("Money required (₹)")
+    ax.set_title("Goal requirements vs average available money")
     plt.xticks(rotation=30)
+
+    for bar, g in zip(bars, goals.keys()):
+        gap = deviation[g]
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{gap:+,.0f}",
+            ha="center",
+            va="bottom",
+            fontsize=9
+        )
+
     st.pyplot(fig)
 
-    st.markdown("### What this graph means:")
+    st.markdown("### How to read this graph")
     st.write(
-        "• Bars **above zero** → this goal needs **more money than average**\n"
-        "• Bars **below zero** → this goal needs **less money than average**\n"
-        "• Taller bars → **bigger pressure on your income**"
+        f"""
+        • The **horizontal line** shows average money available per goal  
+          (₹{avg_allocation:,.0f})
+
+        • Bars show actual money required for each goal
+
+        • Numbers on bars show **extra (+₹)** or **shortfall (−₹)** from the average
+
+        • This happens because total money is **limited**
+        """
     )
 
-    st.info(f"Maximum financial pressure is coming from **{max_dev_goal}**")
+    st.info(
+        f"Maximum pressure comes from **{max_dev_goal}**, "
+        f"which needs ₹{abs(deviation[max_dev_goal]):,.0f} more than average."
+    )
+
+    st.markdown(
+        """
+        **Constraint:**  
+        Your total money over time is fixed by income and expenses.
+
+        **Next step:**  
+        Optimization will redistribute this fixed money using your priorities,
+        so maximum goals can be achieved.
+        """
+    )
 
 # ================= OPTIMIZATION =================
 if st.button("2️⃣ Optimize my plan"):
@@ -200,37 +218,36 @@ if st.button("2️⃣ Optimize my plan"):
 
     monthly_plan = {g: optimized[g] / (horizon_years * 12) for g in goals}
 
-    st.subheader("📅 Your practical monthly saving plan")
+    st.subheader("📊 Optimal allocation of your total money")
+
+    fig_pie, ax_pie = plt.subplots()
+    ax_pie.pie(
+        optimized.values(),
+        labels=optimized.keys(),
+        autopct=lambda p: f"{p:.1f}%\n₹{p/100*sum(optimized.values()):,.0f}",
+        startangle=90
+    )
+    ax_pie.axis("equal")
+    st.pyplot(fig_pie)
+
+    st.markdown(
+        """
+        This pie shows **how your limited money is distributed optimally**
+        based on importance and constraints.
+        """
+    )
+
+    st.subheader("📅 Monthly saving plan")
 
     for g in monthly_plan:
         st.write(f"Save **₹{monthly_plan[g]:,.0f} per month** for {g}")
 
-    if feasible_capacity >= sum(goals.values()):
-        extra = (feasible_capacity - sum(goals.values())) / (horizon_years * 12)
-        st.success(
-            f"All goals are achievable within {horizon_years} years. "
-            f"You will still have a surplus of **₹{extra:,.0f} per month**."
-        )
-
-    consent = st.checkbox(
-        "I allow my anonymous data to be used for academic research"
+    st.success(
+        "Given your income constraint, this is the optimal allocation that maximizes goal achievement based on your priorities."
     )
-
-    if consent:
-        record = {
-            "timestamp": datetime.now(),
-            "feasible_capacity": feasible_capacity
-        }
-        df = pd.DataFrame([record])
-        if not os.path.exists("responses.csv"):
-            df.to_csv("responses.csv", index=False)
-        else:
-            df.to_csv("responses.csv", mode="a", header=False, index=False)
-
-        st.success("Thank you. Your data has been saved anonymously.")
 
     st.markdown("---")
     st.markdown(
         "**Thank you for using IRMAN’S Dream Calculator.**  \n"
-        "This tool does not force decisions — it helps you understand trade-offs clearly."
+        "This plan shows what is realistically achievable — and how to move towards it optimally."
     )
