@@ -2,20 +2,13 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
-import io
-import os
-
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 
 st.title("IRMAN'S DREAM CALCULATOR")
 st.markdown(
-    "**A practical life-planning tool that shows how your limited income can be optimally allocated to achieve maximum life goals.**"
+    "**A practical life-planning tool that shows how limited income can be optimally allocated to achieve maximum life goals.**"
 )
 
 st.markdown("---")
@@ -36,42 +29,27 @@ if salary <= 0:
 
 base_surplus = salary - expenses
 
-# ================= LIFE CONDITIONS WITH % =================
+# ================= LIFE CONDITIONS =================
 st.subheader("3️⃣ Life conditions (impact shown clearly)")
 
 job = st.selectbox(
     "Job stability (impact on income)",
-    [
-        "Stable (0%)",
-        "Somewhat unstable (−5%)",
-        "Highly unstable (−12%)"
-    ]
+    ["Stable (0%)", "Somewhat unstable (−5%)", "Highly unstable (−12%)"]
 )
 
 health = st.selectbox(
     "Health routine (impact on income)",
-    [
-        "Good routine (0%)",
-        "Irregular routine (−5%)",
-        "Poor health habits (−10%)"
-    ]
+    ["Good routine (0%)", "Irregular routine (−5%)", "Poor health habits (−10%)"]
 )
 
 family = st.selectbox(
     "Living arrangement (impact on expenses)",
-    [
-        "Living with family (−5%)",
-        "Living away from family (+5%)"
-    ]
+    ["Living with family (−5%)", "Living away from family (+5%)"]
 )
 
 work = st.selectbox(
     "Work style (impact on income)",
-    [
-        "Balanced & sustainable (0%)",
-        "Aggressive long hours (+8%)",
-        "Frequent burnout cycles (−12%)"
-    ]
+    ["Balanced & sustainable (0%)", "Aggressive long hours (+8%)", "Frequent burnout cycles (−12%)"]
 )
 
 # ================= APPLY EFFECTS =================
@@ -104,14 +82,13 @@ st.info(f"Usable monthly surplus after life effects: ₹{adjusted_surplus:,.0f}"
 
 # ================= SALARY GROWTH =================
 st.subheader("4️⃣ Income growth assumption")
-
-st.markdown("We assume **salary grows at 4% per year**, approximately matching inflation.")
+st.markdown("Salary is assumed to grow at **4% per year**, roughly matching inflation.")
 
 inflation_rate = 0.04
 current_salary = salary
 yearly_surplus = []
 
-for year in range(1, horizon_years + 1):
+for _ in range(horizon_years):
     annual_surplus = (current_salary - expenses) * 12
     yearly_surplus.append(max(annual_surplus, 0))
     current_salary *= (1 + inflation_rate)
@@ -133,25 +110,29 @@ goals = {
 
 # ================= IMPORTANCE =================
 st.subheader("6️⃣ If this goal is delayed, how uncomfortable would you feel?")
+importance = {g: st.slider(g, 10, 100, 50) for g in goals}
 
-importance = {}
-for g in goals:
-    importance[g] = st.slider(g, 10, 100, 50)
-
-# ================= DEVIATION GRAPH =================
-if st.button("1️⃣ Show deviation diagnosis"):
+# ================= WITHOUT OPTIMIZATION GRAPH =================
+if st.button("1️⃣ Show deviation (without optimization)"):
 
     avg_allocation = feasible_capacity / len(goals)
     deviation = {g: goals[g] - avg_allocation for g in goals}
-    max_dev_goal = max(deviation, key=lambda x: abs(deviation[x]))
 
     fig, ax = plt.subplots(figsize=(8, 5))
 
     bars = ax.bar(goals.keys(), goals.values())
-    ax.axhline(avg_allocation)  # SOLID LINE (NO DASHES)
+    ax.axhline(avg_allocation)
+
+    ax.text(
+        0.5, avg_allocation,
+        f"Average available per goal = ₹{avg_allocation:,.0f}",
+        transform=ax.get_yaxis_transform(),
+        fontsize=10,
+        verticalalignment="bottom"
+    )
 
     ax.set_ylabel("Money required (₹)")
-    ax.set_title("Goal requirements vs average available money")
+    ax.set_title("Goal requirements vs average available money (No optimization)")
     plt.xticks(rotation=30)
 
     for bar, g in zip(bars, goals.keys()):
@@ -167,33 +148,13 @@ if st.button("1️⃣ Show deviation diagnosis"):
 
     st.pyplot(fig)
 
-    st.markdown("### How to read this graph")
-    st.write(
-        f"""
-        • The **horizontal line** shows average money available per goal  
-          (₹{avg_allocation:,.0f})
-
-        • Bars show actual money required for each goal
-
-        • Numbers on bars show **extra (+₹)** or **shortfall (−₹)** from the average
-
-        • This happens because total money is **limited**
-        """
-    )
-
-    st.info(
-        f"Maximum pressure comes from **{max_dev_goal}**, "
-        f"which needs ₹{abs(deviation[max_dev_goal]):,.0f} more than average."
-    )
-
     st.markdown(
         """
-        **Constraint:**  
-        Your total money over time is fixed by income and expenses.
-
-        **Next step:**  
-        Optimization will redistribute this fixed money using your priorities,
-        so maximum goals can be achieved.
+        **Interpretation:**
+        - Bars show full money required for each goal (₹)
+        - Horizontal line shows average money available per goal (₹)
+        - Numbers on bars show surplus (+₹) or shortfall (−₹)
+        - This mismatch exists because total money is limited
         """
     )
 
@@ -216,38 +177,46 @@ if st.button("2️⃣ Optimize my plan"):
         optimized[g] += extra
         remaining -= extra
 
-    monthly_plan = {g: optimized[g] / (horizon_years * 12) for g in goals}
+    # ===== VISUALLY APPEALING STACKED BAR =====
+    st.subheader("📊 Optimal allocation under income constraint")
 
-    st.subheader("📊 Optimal allocation of your total money")
+    fig2, ax2 = plt.subplots(figsize=(8, 5))
+    bottom = 0
 
-    fig_pie, ax_pie = plt.subplots()
-    ax_pie.pie(
-        optimized.values(),
-        labels=optimized.keys(),
-        autopct=lambda p: f"{p:.1f}%\n₹{p/100*sum(optimized.values()):,.0f}",
-        startangle=90
-    )
-    ax_pie.axis("equal")
-    st.pyplot(fig_pie)
+    for g in optimized:
+        ax2.bar("Total Available Money", optimized[g], bottom=bottom, label=g)
+        bottom += optimized[g]
+
+    ax2.set_ylabel("Money allocated (₹)")
+    ax2.set_title("How total money is optimally distributed across goals")
+    ax2.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+
+    st.pyplot(fig2)
 
     st.markdown(
-        """
-        This pie shows **how your limited money is distributed optimally**
-        based on importance and constraints.
+        f"""
+        **Constraint:** Total available money = ₹{feasible_capacity:,.0f}
+
+        **Optimization logic:**
+        - Every goal receives a minimum guaranteed allocation
+        - Remaining money is allocated based on importance (weightage)
+        - This allocation maximizes overall goal achievement under the constraint
         """
     )
 
+    # ===== MONTHLY PLAN =====
     st.subheader("📅 Monthly saving plan")
 
-    for g in monthly_plan:
-        st.write(f"Save **₹{monthly_plan[g]:,.0f} per month** for {g}")
+    for g in optimized:
+        monthly = optimized[g] / (horizon_years * 12)
+        st.write(f"Save **₹{monthly:,.0f} per month** for {g}")
 
     st.success(
-        "Given your income constraint, this is the optimal allocation that maximizes goal achievement based on your priorities."
+        "Given your income constraint, this is the optimal allocation to achieve maximum possible goals."
     )
 
     st.markdown("---")
     st.markdown(
         "**Thank you for using IRMAN’S Dream Calculator.**  \n"
-        "This plan shows what is realistically achievable — and how to move towards it optimally."
+        "This plan shows what is realistically achievable and how to act on it."
     )
