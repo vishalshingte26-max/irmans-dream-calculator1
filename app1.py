@@ -14,7 +14,6 @@ from reportlab.lib import colors
 st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 
 st.title("IRMAN'S DREAM CALCULATOR")
-
 st.markdown(
     "**A practical life-planning tool that shows how close your income path is to your goals — and how small changes can make it optimal.**"
 )
@@ -26,7 +25,7 @@ st.subheader("1️⃣ Planning horizon")
 horizon_years = st.slider("How many years do you want to plan for?", 5, 30, 10)
 
 # ================= INCOME =================
-st.subheader("2️⃣ Income & unavoidable expenses")
+st.subheader("2️⃣ Current income & unavoidable expenses")
 
 salary = st.number_input("Current monthly income (₹)", min_value=0, step=5000)
 expenses = st.number_input("Monthly unavoidable expenses (₹)", min_value=0, step=2000)
@@ -37,56 +36,96 @@ if salary <= 0:
 
 base_surplus = salary - expenses
 
-# ================= LIFE CONDITIONS (SIMPLE QUESTIONS) =================
-st.subheader("3️⃣ Your current life conditions")
+# ================= LIFE CONDITIONS (WITH % IMPACT SHOWN) =================
+st.subheader("3️⃣ Your current life conditions (with impact shown clearly)")
 
-job = st.selectbox("Job stability", ["Stable", "Somewhat unstable", "Highly unstable"])
-health = st.selectbox("Health routine", ["Good", "Irregular", "Poor"])
-family = st.selectbox("Living arrangement", ["With family", "Away from family"])
-work = st.selectbox("Work style", ["Balanced", "Aggressive long hours", "Frequent burnout"])
+job = st.selectbox(
+    "Job stability (impact on income)",
+    [
+        "Stable (0% change)",
+        "Somewhat unstable (−5% income)",
+        "Highly unstable (−12% income)"
+    ]
+)
+
+health = st.selectbox(
+    "Health routine (impact on income)",
+    [
+        "Good routine (0% change)",
+        "Irregular routine (−5% income)",
+        "Poor health habits (−10% income)"
+    ]
+)
+
+family = st.selectbox(
+    "Living arrangement (impact on expenses)",
+    [
+        "Living with family (−5% expenses)",
+        "Living away from family (+5% expenses)"
+    ]
+)
+
+work = st.selectbox(
+    "Work style (impact on income)",
+    [
+        "Balanced & sustainable (0% change)",
+        "Aggressive long hours (+8% income)",
+        "Frequent burnout cycles (−12% income)"
+    ]
+)
 
 # ================= APPLY LIFE EFFECTS =================
 income_penalty = 0
 expense_penalty = 0
 
-if job == "Somewhat unstable":
+if "−5%" in job:
     income_penalty += 0.05
-elif job == "Highly unstable":
+elif "−12%" in job:
     income_penalty += 0.12
 
-if health == "Irregular":
+if "−5%" in health:
     income_penalty += 0.05
-elif health == "Poor":
+elif "−10%" in health:
     income_penalty += 0.10
 
-if family == "With family":
+if "−5% expenses" in family:
     expense_penalty -= 0.05
 else:
     expense_penalty += 0.05
 
-if work == "Aggressive long hours":
+if "+8%" in work:
     income_penalty -= 0.08
-elif work == "Frequent burnout":
+elif "−12%" in work:
     income_penalty += 0.12
 
 adjusted_surplus = base_surplus * (1 - income_penalty) * (1 - expense_penalty)
 
-st.info(f"Usable monthly surplus after life effects: ₹{adjusted_surplus:,.0f}")
+st.info(
+    f"After considering life conditions, usable monthly surplus becomes **₹{adjusted_surplus:,.0f}**"
+)
 
-# ================= INFLATION-ADJUSTED CAPACITY =================
+# ================= SALARY GROWTH WITH INFLATION =================
+st.subheader("4️⃣ Income growth assumption")
+
+st.markdown(
+    "We assume your **salary grows at 4% per year**, roughly matching long-term inflation."
+)
+
 inflation_rate = 0.04
 current_salary = salary
 yearly_surplus = []
 
-for year in range(horizon_years):
+for year in range(1, horizon_years + 1):
     annual_surplus = (current_salary - expenses) * 12
     yearly_surplus.append(max(annual_surplus, 0))
     current_salary *= (1 + inflation_rate)
 
 feasible_capacity = sum(yearly_surplus)
 
+st.success(f"Total money realistically available over {horizon_years} years: ₹{feasible_capacity:,.0f}")
+
 # ================= GOALS =================
-st.subheader("4️⃣ Life goals (total amount needed)")
+st.subheader("5️⃣ Life goals (total amount required)")
 
 goals = {
     "Asset creation": st.number_input("House / land / vehicle (₹)", 0, step=100000),
@@ -97,77 +136,51 @@ goals = {
 }
 
 # ================= IMPORTANCE =================
-st.subheader("5️⃣ If this goal is delayed, how uncomfortable would you feel?")
+st.subheader("6️⃣ If this goal is delayed, how uncomfortable would you feel?")
 
 importance = {}
 for g in goals:
-    importance[g] = st.slider(g, 10, 100, 50)
+    importance[g] = st.slider(
+        g,
+        10,
+        100,
+        50,
+        help="Higher value means you mentally struggle more if this goal is delayed"
+    )
 
 # ================= DEVIATION DIAGNOSIS =================
 if st.button("1️⃣ Show deviation diagnosis"):
 
     avg_allocation = feasible_capacity / len(goals)
-    deviation = {g: goals[g] - avg_allocation for g in goals}
+
+    deviation = {}
+    for g in goals:
+        deviation[g] = goals[g] - avg_allocation
+
     max_dev_goal = max(deviation, key=lambda x: abs(deviation[x]))
 
-    st.session_state.update({
-        "avg": avg_allocation,
-        "deviation": deviation,
-        "capacity": feasible_capacity
-    })
+    st.session_state["capacity"] = feasible_capacity
+    st.session_state["deviation"] = deviation
 
     fig, ax = plt.subplots()
     ax.bar(deviation.keys(), deviation.values())
     ax.axhline(0)
-    ax.set_title("Deviation from Average Allocation")
+    ax.set_ylabel("Deviation from average allocation (₹)")
+    ax.set_title("Where your money demand deviates from an average plan")
     plt.xticks(rotation=30)
     st.pyplot(fig)
 
-    st.info(f"Maximum deviation is observed in: **{max_dev_goal}**")
+    st.markdown("### What this graph means:")
+    st.write(
+        "• Bars **above zero** → this goal needs **more money than average**\n"
+        "• Bars **below zero** → this goal needs **less money than average**\n"
+        "• Taller bars → **bigger pressure on your income**"
+    )
 
-# ================= PDF FUNCTION =================
-def generate_pdf(data, goals, monthly_plan):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    elements.append(Paragraph("IRMAN'S DREAM CALCULATOR – OPTIMIZED PLAN", styles["Title"]))
-    elements.append(Spacer(1, 15))
-
-    elements.append(Paragraph(f"Planning horizon: {data['years']} years", styles["Normal"]))
-    elements.append(Paragraph(f"Feasible capacity: ₹{data['capacity']:,.0f}", styles["Normal"]))
-    elements.append(Spacer(1, 15))
-
-    table_data = [["Goal", "Monthly saving required (₹)"]]
-    for g in monthly_plan:
-        table_data.append([g, f"{monthly_plan[g]:,.0f}"])
-
-    table = Table(table_data)
-    table.setStyle(TableStyle([
-        ("GRID", (0,0), (-1,-1), 1, colors.grey),
-        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
-    ]))
-
-    elements.append(table)
-    elements.append(Spacer(1, 20))
-
-    elements.append(Paragraph(
-        "Action steps:<br/>"
-        "1. Automate monthly savings.<br/>"
-        "2. Avoid lifestyle inflation.<br/>"
-        "3. Revisit plan annually or after major life changes.",
-        styles["Normal"]
-    ))
-
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
+    st.info(f"Maximum financial pressure is coming from **{max_dev_goal}**")
 
 # ================= OPTIMIZATION =================
 if st.button("2️⃣ Optimize my plan"):
-
-    st.audio("success.mp3", autoplay=True)
 
     MIN_PERCENT = 0.35
     optimized = {}
@@ -187,38 +200,26 @@ if st.button("2️⃣ Optimize my plan"):
 
     monthly_plan = {g: optimized[g] / (horizon_years * 12) for g in goals}
 
-    st.subheader("📅 Your monthly action plan")
+    st.subheader("📅 Your practical monthly saving plan")
+
     for g in monthly_plan:
-        st.write(f"Save ₹{monthly_plan[g]:,.0f} per month for **{g}**")
+        st.write(f"Save **₹{monthly_plan[g]:,.0f} per month** for {g}")
 
     if feasible_capacity >= sum(goals.values()):
         extra = (feasible_capacity - sum(goals.values())) / (horizon_years * 12)
         st.success(
             f"All goals are achievable within {horizon_years} years. "
-            f"You will still have a monthly surplus of ₹{extra:,.0f}."
+            f"You will still have a surplus of **₹{extra:,.0f} per month**."
         )
 
     consent = st.checkbox(
         "I allow my anonymous data to be used for academic research"
     )
 
-    pdf = generate_pdf(
-        {"years": horizon_years, "capacity": feasible_capacity},
-        goals,
-        monthly_plan
-    )
-
-    st.download_button(
-        "📄 Download optimized life plan (PDF)",
-        pdf,
-        file_name="optimized_life_plan.pdf",
-        mime="application/pdf"
-    )
-
     if consent:
         record = {
             "timestamp": datetime.now(),
-            "capacity": feasible_capacity
+            "feasible_capacity": feasible_capacity
         }
         df = pd.DataFrame([record])
         if not os.path.exists("responses.csv"):
@@ -231,5 +232,5 @@ if st.button("2️⃣ Optimize my plan"):
     st.markdown("---")
     st.markdown(
         "**Thank you for using IRMAN’S Dream Calculator.**  \n"
-        "This tool does not tell you what to do — it helps you see clearly and decide confidently."
+        "This tool does not force decisions — it helps you understand trade-offs clearly."
     )
