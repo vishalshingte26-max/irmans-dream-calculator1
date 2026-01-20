@@ -31,29 +31,48 @@ if salary <= 0:
 # ================= LIFE CONDITIONS =================
 st.subheader("3️⃣ Life conditions (impact shown clearly)")
 
-job = st.selectbox("Job stability (impact on income)",
-                   ["Stable (0%)", "Somewhat unstable (−5%)", "Highly unstable (−12%)"])
-health = st.selectbox("Health routine (impact on income)",
-                      ["Good routine (0%)", "Irregular routine (−5%)", "Poor health habits (−10%)"])
-family = st.selectbox("Living arrangement (impact on expenses)",
-                      ["Living with family (−5%)", "Living away from family (+5%)"])
-work = st.selectbox("Work style (impact on income)",
-                    ["Balanced & sustainable (0%)", "Aggressive long hours (+8%)", "Frequent burnout cycles (−12%)"])
+job = st.selectbox(
+    "Job stability (impact on income)",
+    ["Stable (0%)", "Somewhat unstable (−5%)", "Highly unstable (−12%)"]
+)
+
+health = st.selectbox(
+    "Health routine (impact on income)",
+    ["Good routine (0%)", "Irregular routine (−5%)", "Poor health habits (−10%)"]
+)
+
+family = st.selectbox(
+    "Living arrangement (impact on expenses)",
+    ["Living with family (−5%)", "Living away from family (+5%)"]
+)
+
+work = st.selectbox(
+    "Work style (impact on income)",
+    ["Balanced & sustainable (0%)", "Aggressive long hours (+8%)", "Frequent burnout cycles (−12%)"]
+)
 
 income_penalty = 0
 expense_penalty = 0
 
-if "−5%" in job: income_penalty += 0.05
-elif "−12%" in job: income_penalty += 0.12
+if "−5%" in job:
+    income_penalty += 0.05
+elif "−12%" in job:
+    income_penalty += 0.12
 
-if "−5%" in health: income_penalty += 0.05
-elif "−10%" in health: income_penalty += 0.10
+if "−5%" in health:
+    income_penalty += 0.05
+elif "−10%" in health:
+    income_penalty += 0.10
 
-if "−5%" in family: expense_penalty -= 0.05
-else: expense_penalty += 0.05
+if "−5%" in family:
+    expense_penalty -= 0.05
+else:
+    expense_penalty += 0.05
 
-if "+8%" in work: income_penalty -= 0.08
-elif "−12%" in work: income_penalty += 0.12
+if "+8%" in work:
+    income_penalty -= 0.08
+elif "−12%" in work:
+    income_penalty += 0.12
 
 base_surplus = salary - expenses
 adjusted_surplus = base_surplus * (1 - income_penalty) * (1 - expense_penalty)
@@ -93,7 +112,7 @@ importance = {g: st.slider(f"Importance of {g}", 10, 100, 50) for g in goals}
 avg_allocation = feasible_capacity / len(goals)
 before_alloc = {g: min(goals[g], avg_allocation) for g in goals}
 
-st.subheader("📌 Before optimization: goal vs available money (constraint)")
+st.subheader("📌 Before optimization: constraint reality")
 
 before_rows = []
 for g in goals:
@@ -136,7 +155,7 @@ if st.button("2️⃣ Optimize my plan"):
         remaining -= extra
 
     # ================= BEFORE vs AFTER TABLE =================
-    st.subheader("📊 Goal achievement comparison (₹ and %)")
+    st.subheader("📊 Goal achievement: before vs after optimization")
 
     compare_rows = []
     for g in goals:
@@ -165,18 +184,18 @@ if st.button("2️⃣ Optimize my plan"):
         use_container_width=True
     )
 
-    # ================= OPTIMIZATION GRAPH (WITH ₹ LABELS) =================
+    # ================= OPTIMIZATION GRAPH (₹ SHOWN ON BAR) =================
     st.subheader("📊 Optimal allocation under income constraint")
 
     fig, ax = plt.subplots(figsize=(8, 5))
     bottom = 0
 
     for g in optimized:
-        bar = ax.bar("Total Available Money", optimized[g], bottom=bottom)
+        ax.bar("Total Available Money", optimized[g], bottom=bottom)
         ax.text(
             0,
             bottom + optimized[g] / 2,
-            f"₹{optimized[g]:,.0f}\n{g}",
+            f"{g}\n₹{optimized[g]:,.0f}",
             ha="center",
             va="center",
             fontsize=9
@@ -192,9 +211,7 @@ if st.button("2️⃣ Optimize my plan"):
     st.subheader("📅 Monthly saving plan")
 
     for g in optimized:
-        st.write(
-            f"Save **₹{optimized[g] / (horizon_years * 12):,.0f} per month** for {g}"
-        )
+        st.write(f"Save **₹{optimized[g] / (horizon_years * 12):,.0f} per month** for {g}")
 
     # ================= SAVE RESPONDENT DATA =================
     consent = st.checkbox("I allow my anonymous data to be saved for academic research")
@@ -207,6 +224,7 @@ if st.button("2️⃣ Optimize my plan"):
             "years": horizon_years,
             "feasible_capacity": feasible_capacity
         }
+
         df = pd.DataFrame([record])
         df.to_csv(
             "responses.csv",
@@ -214,6 +232,9 @@ if st.button("2️⃣ Optimize my plan"):
             header=not os.path.exists("responses.csv"),
             index=False
         )
+
         st.success("Your response has been saved anonymously.")
 
     st.success(
+        "Given the income constraint, this allocation maximizes overall goal achievement based on your priorities."
+    )
