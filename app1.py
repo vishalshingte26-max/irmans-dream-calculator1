@@ -1,5 +1,4 @@
 import streamlit as st
-import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
 import os
@@ -7,138 +6,184 @@ import os
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 
+# ================= TITLE =================
 st.title("IRMAN'S DREAM CALCULATOR")
+
 st.markdown(
-    "**A practical life-planning tool that shows how limited income can be optimally allocated to achieve maximum life goals.**"
+    """
+### Constraint-Based Life Planning Model
+
+This tool shows how life goals interact with limited income and lifestyle constraints.
+It is designed to understand **aspirations vs feasibility**, not to judge choices.
+"""
 )
 
 st.markdown("---")
 
 # ================= PLANNING HORIZON =================
 st.subheader("1️⃣ Planning horizon")
-horizon_years = st.slider("How many years do you want to plan for?", 5, 30, 10)
 
-# ================= INCOME =================
-st.subheader("2️⃣ Current income & unavoidable expenses")
+horizon_years = st.slider(
+    "For how many years are you planning your life goals?",
+    5, 30, 10
+)
 
-salary = st.number_input("Current monthly income (₹)", min_value=0, step=5000)
-expenses = st.number_input("Monthly unavoidable expenses (₹)", min_value=0, step=2000)
+st.markdown("---")
+
+# ================= INCOME & EXPENSES =================
+st.subheader("2️⃣ Income and unavoidable expenses")
+
+salary = st.number_input(
+    "Monthly income (₹)",
+    min_value=0,
+    step=5000
+)
+
+expenses = st.number_input(
+    "Monthly unavoidable expenses (₹)",
+    min_value=0,
+    step=2000
+)
 
 if salary <= 0:
     st.warning("Please enter income to continue.")
     st.stop()
 
-# ================= LIFE CONDITIONS =================
-st.subheader("3️⃣ Life conditions (impact shown clearly)")
+if expenses >= salary:
+    st.error("Expenses exceed income. No surplus is available.")
+    st.stop()
+
+base_surplus = salary - expenses
+st.success(f"Base monthly surplus: ₹{base_surplus:,.0f}")
+
+st.markdown("---")
+
+# ================= LIFE CONSTRAINTS =================
+st.subheader("3️⃣ Life conditions")
 
 job = st.selectbox(
-    "Job stability (impact on income)",
-    ["Stable (0%)", "Somewhat unstable (−5%)", "Highly unstable (−12%)"]
+    "Job stability",
+    [
+        "Stable income (0% penalty)",
+        "Somewhat unstable income (5% penalty)",
+        "Highly unstable income (12% penalty)"
+    ]
 )
 
 health = st.selectbox(
-    "Health routine (impact on income)",
-    ["Good routine (0%)", "Irregular routine (−5%)", "Poor health habits (−10%)"]
-)
-
-family = st.selectbox(
-    "Living arrangement (impact on expenses)",
-    ["Living with family (−5%)", "Living away from family (+5%)"]
+    "Health and exercise routine",
+    [
+        "Good routine (0% penalty)",
+        "Irregular routine (5% penalty)",
+        "Poor routine (10% penalty)"
+    ]
 )
 
 work = st.selectbox(
-    "Work style (impact on income)",
-    ["Balanced & sustainable (0%)", "Aggressive long hours (+8%)", "Frequent burnout cycles (−12%)"]
+    "Work pattern",
+    [
+        "Balanced and sustainable (0% penalty)",
+        "Aggressive long hours (8% income boost)",
+        "Frequent burnout cycles (12% penalty)"
+    ]
 )
 
-income_penalty = 0
-expense_penalty = 0
+family = st.selectbox(
+    "Living arrangement",
+    [
+        "Living with family (5% lower expenses)",
+        "Living away from family (5% higher expenses)"
+    ]
+)
 
-if "−5%" in job:
+# ================= PENALTY CALCULATION =================
+income_penalty = 0.0
+expense_penalty = 0.0
+
+if "5%" in job:
     income_penalty += 0.05
-elif "−12%" in job:
+elif "12%" in job:
     income_penalty += 0.12
 
-if "−5%" in health:
+if "5%" in health:
     income_penalty += 0.05
-elif "−10%" in health:
+elif "10%" in health:
     income_penalty += 0.10
 
-if "−5%" in family:
+if "Aggressive" in work:
+    income_penalty -= 0.08
+elif "12%" in work:
+    income_penalty += 0.12
+
+if "with family" in family:
     expense_penalty -= 0.05
 else:
     expense_penalty += 0.05
 
-if "+8%" in work:
-    income_penalty -= 0.08
-elif "−12%" in work:
-    income_penalty += 0.12
+adjusted_income = salary * (1 - income_penalty)
+adjusted_expenses = expenses * (1 + expense_penalty)
+adjusted_surplus = adjusted_income - adjusted_expenses
 
-base_surplus = salary - expenses
-adjusted_surplus = base_surplus * (1 - income_penalty) * (1 - expense_penalty)
+st.markdown("### Effect of life conditions")
+st.write(f"Income impact: {income_penalty*100:.1f}%")
+st.write(f"Expense impact: {expense_penalty*100:.1f}%")
+st.info(f"Usable monthly surplus: ₹{adjusted_surplus:,.0f}")
 
-st.info(f"Usable monthly surplus after life effects: ₹{adjusted_surplus:,.0f}")
+if adjusted_surplus <= 0:
+    st.error("After applying constraints, no usable surplus remains.")
+    st.stop()
 
-# ================= SALARY GROWTH =================
-st.subheader("4️⃣ Income growth assumption")
-st.markdown("Salary grows at **4% per year**, approximately matching inflation.")
+st.markdown("---")
 
-inflation_rate = 0.04
-current_salary = salary
-yearly_surplus = []
+# ================= FEASIBLE CAPACITY =================
+st.subheader("4️⃣ Feasible capacity")
 
-for _ in range(horizon_years):
-    yearly_surplus.append(max((current_salary - expenses) * 12, 0))
-    current_salary *= (1 + inflation_rate)
-
-feasible_capacity = sum(yearly_surplus)
-
+feasible_capacity = adjusted_surplus * 12 * horizon_years
 st.success(f"Total money available over {horizon_years} years: ₹{feasible_capacity:,.0f}")
+
+st.markdown("---")
 
 # ================= GOALS =================
 st.subheader("5️⃣ Life goals")
 
-goals = {
-    "Asset creation": st.number_input("House / land / vehicle (₹)", 0, step=100000),
-    "Emergency fund": st.number_input("Emergency fund (₹)", 0, step=50000),
-    "Education / loan repayment": st.number_input("Education / loan repayment (₹)", 0, step=50000),
-    "Marriage & family setup": st.number_input("Marriage & family setup (₹)", 0, step=50000),
-    "Social contribution": st.number_input("Social contribution (₹)", 0, step=20000),
-}
+goals = {}
+goals["Asset creation"] = st.number_input("Asset creation (₹)", 0, step=100000)
+goals["Emergency fund"] = st.number_input("Emergency fund (₹)", 0, step=50000)
+goals["Education / loan repayment"] = st.number_input("Education / loan repayment (₹)", 0, step=50000)
+goals["Marriage & family"] = st.number_input("Marriage & family (₹)", 0, step=50000)
+goals["Social contribution"] = st.number_input("Social contribution (₹)", 0, step=20000)
 
-importance = {g: st.slider(f"Importance of {g}", 10, 100, 50) for g in goals}
+total_goal_amount = sum(goals.values())
 
-# ================= BEFORE OPTIMIZATION =================
-avg_allocation = feasible_capacity / len(goals)
-before_alloc = {g: min(goals[g], avg_allocation) for g in goals}
+st.markdown("---")
 
-st.subheader("📌 Before optimization: constraint reality")
+# ================= IMPORTANCE =================
+st.subheader("6️⃣ Importance of goals")
 
-before_rows = []
+importance = {}
 for g in goals:
-    before_rows.append([
-        g,
-        f"₹{goals[g]:,.0f}",
-        f"₹{avg_allocation:,.0f}",
-        f"₹{goals[g] - avg_allocation:,.0f}"
-    ])
+    importance[g] = st.slider(f"Importance of {g}", 1, 10, 5)
 
-st.dataframe(
-    pd.DataFrame(
-        before_rows,
-        columns=[
-            "Goal",
-            "Goal amount (₹)",
-            "Average available per goal (₹)",
-            "Gap (+need / −excess) (₹)"
-        ]
-    ),
-    use_container_width=True
-)
+st.markdown("---")
 
-# ================= OPTIMIZATION =================
-if st.button("2️⃣ Optimize my plan"):
+# ================= CHECK FEASIBILITY =================
+st.subheader("7️⃣ Feasibility check")
 
+if feasible_capacity >= total_goal_amount:
+
+    st.success("🎉 All goals are achievable under your current assumptions.")
+
+    st.markdown("### Monthly saving plan")
+    for g in goals:
+        st.write(
+            f"Save **₹{goals[g] / (horizon_years * 12):,.0f} per month** for {g}"
+        )
+
+else:
+
+    st.warning("⚠️ All goals are not achievable together. An optimized plan is suggested.")
+
+    # ================= OPTIMIZATION =================
     MIN_PERCENT = 0.35
     optimized = {}
     remaining = feasible_capacity
@@ -154,87 +199,58 @@ if st.button("2️⃣ Optimize my plan"):
         optimized[g] += extra
         remaining -= extra
 
-    # ================= BEFORE vs AFTER TABLE =================
-    st.subheader("📊 Goal achievement: before vs after optimization")
-
-    compare_rows = []
+    # ================= RESULTS TABLE =================
+    result_rows = []
     for g in goals:
-        before_pct = (before_alloc[g] / goals[g] * 100) if goals[g] > 0 else 0
-        after_pct = (optimized[g] / goals[g] * 100) if goals[g] > 0 else 0
-
-        compare_rows.append([
+        achieved_pct = (optimized[g] / goals[g] * 100) if goals[g] > 0 else 0
+        result_rows.append([
             g,
-            f"₹{before_alloc[g]:,.0f}",
-            f"{before_pct:.1f}%",
+            f"₹{goals[g]:,.0f}",
             f"₹{optimized[g]:,.0f}",
-            f"{after_pct:.1f}%"
+            f"{achieved_pct:.1f}%"
         ])
 
     st.dataframe(
         pd.DataFrame(
-            compare_rows,
+            result_rows,
             columns=[
                 "Goal",
-                "Achieved before (₹)",
-                "Achieved before (%)",
-                "Achieved after (₹)",
-                "Achieved after (%)"
+                "Target (₹)",
+                "Allocated (₹)",
+                "Fulfilment (%)"
             ]
         ),
         use_container_width=True
     )
 
-    # ================= OPTIMIZATION GRAPH (₹ SHOWN ON BAR) =================
-    st.subheader("📊 Optimal allocation under income constraint")
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bottom = 0
-
+    st.markdown("### Monthly saving plan (optimized)")
     for g in optimized:
-        ax.bar("Total Available Money", optimized[g], bottom=bottom)
-        ax.text(
-            0,
-            bottom + optimized[g] / 2,
-            f"{g}\n₹{optimized[g]:,.0f}",
-            ha="center",
-            va="center",
-            fontsize=9
-        )
-        bottom += optimized[g]
-
-    ax.set_ylabel("Money allocated (₹)")
-    ax.set_title("How total available money is optimally allocated")
-
-    st.pyplot(fig)
-
-    # ================= MONTHLY PLAN =================
-    st.subheader("📅 Monthly saving plan")
-
-    for g in optimized:
-        st.write(f"Save **₹{optimized[g] / (horizon_years * 12):,.0f} per month** for {g}")
-
-    # ================= SAVE RESPONDENT DATA =================
-    consent = st.checkbox("I allow my anonymous data to be saved for academic research")
-
-    if consent:
-        record = {
-            "timestamp": datetime.now(),
-            "salary": salary,
-            "expenses": expenses,
-            "years": horizon_years,
-            "feasible_capacity": feasible_capacity
-        }
-
-        df = pd.DataFrame([record])
-        df.to_csv(
-            "responses.csv",
-            mode="a",
-            header=not os.path.exists("responses.csv"),
-            index=False
+        st.write(
+            f"Save **₹{optimized[g] / (horizon_years * 12):,.0f} per month** for {g}"
         )
 
-        st.success("Your response has been saved anonymously.")
+# ================= SAVE RESPONSES =================
+st.markdown("---")
+st.subheader("📥 Classroom response capture")
 
-    st.success(
-        "Given the income constraint, this allocation maximizes overall goal achievement based on your priorities."
+consent = st.checkbox("I allow my anonymous response to be saved for academic analysis")
+
+if consent:
+    record = {
+        "timestamp": datetime.now(),
+        "salary": salary,
+        "expenses": expenses,
+        "planning_years": horizon_years,
+        "total_goals": total_goal_amount,
+        "feasible_capacity": feasible_capacity
+    }
+
+    df = pd.DataFrame([record])
+    df.to_csv(
+        "responses.csv",
+        mode="a",
+        header=not os.path.exists("responses.csv"),
+        index=False
     )
+
+    st.success("Response saved successfully.")
