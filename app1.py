@@ -246,71 +246,40 @@ else:
         st.write(
             f"Save ₹{optimized[g] / (horizon_years * 12):,.0f} per month for {g}"
         )
-# ================= SAVE CLASSROOM RESPONSES (DETAILED) =================
+# =========================================================
+# SAVE, DOWNLOAD, DELETE CLASSROOM RESPONSES (FINAL)
+# =========================================================
+
+st.markdown("---")
+st.subheader("📊 Classroom Responses")
 
 consent = st.checkbox("I allow my anonymous response to be saved for academic analysis")
 
+FILENAME = "responses.csv"
+
 if consent:
 
-    # Decide whether optimisation was required
-    optimisation_status = "Not required (all goals achievable)" if feasible_capacity >= total_goals else "Required"
+    optimisation_required = "No" if feasible_capacity >= total_goals else "Yes"
 
-    # Create base record
     record = {
-        "timestamp": datetime.now(),
-        "monthly_income": salary,
-        "monthly_expenses": expenses,
-        "planning_years": horizon_years,
-        "total_goal_amount": total_goals,
-        "feasible_capacity": feasible_capacity,
-        "optimisation_status": optimisation_status
+        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Monthly Income": salary,
+        "Monthly Expenses": expenses,
+        "Planning Horizon (Years)": horizon_years,
+        "Total Goal Amount": total_goals,
+        "Feasible Capacity": feasible_capacity,
+        "Optimisation Required": optimisation_required
     }
 
-    # Decide which allocation to save
-    # If all goals are achievable → allocated = target
-    # If not → allocated = optimized value
-    allocation_source = goals if feasible_capacity >= total_goals else optimized
+    # Decide allocation source
+    allocation_source = goals if optimisation_required == "No" else optimized
 
-    # Store goal-wise details
+    # Goal-wise columns
     for g in goals:
-        allocated_amount = allocation_source[g]
-        target_amount = goals[g]
-        achievement_pct = (allocated_amount / target_amount * 100) if target_amount > 0 else 0
-
-        record[f"{g}_target"] = target_amount
-        record[f"{g}_allocated"] = allocated_amount
-        record[f"{g}_achievement_pct"] = round(achievement_pct, 1)
-
-    # Save to CSV
-    df = pd.DataFrame([record])
-
-    df.to_csv(
-        "responses.csv",
-        mode="a",
-        header=not os.path.exists("responses.csv"),
-        index=False
-    )
-
-    st.success("Your response has been saved successfully.")
-# ================= DOWNLOAD CLASSROOM RESPONSES =================
-
-st.markdown("---")
-st.subheader("📥 Download classroom responses")
-
-# This button appears only if responses.csv exists
-if os.path.exists("responses.csv"):
-    with open("responses.csv", "rb") as file:
-        st.download_button(
-            label="Download responses (CSV)",
-            data=file,
-            file_name="classroom_responses.csv",
-            mime="text/csv"
+        record[f"{g} Target"] = goals[g]
+        record[f"{g} Allocated"] = allocation_source[g]
+        record[f"{g} Achievement (%)"] = round(
+            (allocation_source[g] / goals[g] * 100) if goals[g] > 0 else 0, 1
         )
-else:
-    st.info("No responses collected yet.")
-if st.button("Clear all previous responses"):
-    if os.path.exists("responses.csv"):
-        os.remove("responses.csv")
-        st.success("All previous responses deleted.")
 
-
+    df = pd
