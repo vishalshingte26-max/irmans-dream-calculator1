@@ -271,3 +271,11 @@ if consent:
     )
 
     st.success("Response saved successfully.")
+if os.path.exists("responses.csv"):
+    st.download_button(
+        label="Download classroom responses (CSV)",
+        data=open("responses.csv", "rb"),
+        file_name="classroom_responses.csv",
+        mime="text/csv"
+    )
+
