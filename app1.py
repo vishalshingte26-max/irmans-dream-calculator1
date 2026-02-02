@@ -292,4 +292,25 @@ if consent:
     )
 
     st.success("Your response has been saved successfully.")
+# ================= DOWNLOAD CLASSROOM RESPONSES =================
+
+st.markdown("---")
+st.subheader("📥 Download classroom responses")
+
+# This button appears only if responses.csv exists
+if os.path.exists("responses.csv"):
+    with open("responses.csv", "rb") as file:
+        st.download_button(
+            label="Download responses (CSV)",
+            data=file,
+            file_name="classroom_responses.csv",
+            mime="text/csv"
+        )
+else:
+    st.info("No responses collected yet.")
+if st.button("Clear all previous responses"):
+    if os.path.exists("responses.csv"):
+        os.remove("responses.csv")
+        st.success("All previous responses deleted.")
+
 
