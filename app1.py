@@ -246,19 +246,12 @@ else:
         st.write(
             f"Save ₹{optimized[g] / (horizon_years * 12):,.0f} per month for {g}"
         )
-# =========================================================
-# SAVE, DOWNLOAD, DELETE CLASSROOM RESPONSES (FINAL)
-# =========================================================
-
-st.markdown("---")
-st.subheader("📊 Classroom Responses")
+# ---------- SAVE RESPONSE ----------
+FILENAME = "responses.csv"
 
 consent = st.checkbox("I allow my anonymous response to be saved for academic analysis")
 
-FILENAME = "responses.csv"
-
 if consent:
-
     optimisation_required = "No" if feasible_capacity >= total_goals else "Yes"
 
     record = {
@@ -271,10 +264,8 @@ if consent:
         "Optimisation Required": optimisation_required
     }
 
-    # Decide allocation source
     allocation_source = goals if optimisation_required == "No" else optimized
 
-    # Goal-wise columns
     for g in goals:
         record[f"{g} Target"] = goals[g]
         record[f"{g} Allocated"] = allocation_source[g]
@@ -282,4 +273,35 @@ if consent:
             (allocation_source[g] / goals[g] * 100) if goals[g] > 0 else 0, 1
         )
 
-    df = pd
+    pd.DataFrame([record]).to_csv(
+        FILENAME,
+        mode="a",
+        header=not os.path.exists(FILENAME),
+        index=False
+    )
+
+    st.success("Response saved successfully.")
+# =========================================================
+# DOWNLOAD & DELETE RESPONSES (ALWAYS VISIBLE)
+# =========================================================
+
+st.markdown("---")
+st.subheader("📂 Manage Classroom Responses")
+
+if os.path.exists(FILENAME):
+
+    with open(FILENAME, "rb") as f:
+        st.download_button(
+            label="⬇️ Download responses (CSV)",
+            data=f,
+            file_name="classroom_responses.csv",
+            mime="text/csv"
+        )
+
+    if st.button("🗑️ Delete all responses"):
+        os.remove(FILENAME)
+        st.success("All responses deleted. Start fresh.")
+        st.experimental_rerun()
+
+else:
+    st.info("No responses collected yet.")
