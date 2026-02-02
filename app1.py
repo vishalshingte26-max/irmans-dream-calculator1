@@ -3,63 +3,67 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# ================= PAGE CONFIG =================
-st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
+# =========================================================
+# IRMAN'S DREAM CALCULATOR
+# Constraint-Based Life Planning Model
+#
+# IMPORTANT FOR STUDENTS:
+# This code treats life planning as a RESOURCE ALLOCATION problem.
+# Income is LIMITED.
+# Goals are MANY.
+# Lifestyle choices tighten or relax constraints.
+# =========================================================
 
-# ================= TITLE =================
+st.set_page_config(page_title="IRMAN'S DREAM CALCULATOR", layout="centered")
 st.title("IRMAN'S DREAM CALCULATOR")
 
 st.markdown(
     """
-### Constraint-Based Life Planning Model
+This tool shows **how life goals compete for limited money**.
 
-This tool shows how life goals interact with limited income and lifestyle constraints.
-It is designed to understand **aspirations vs feasibility**, not to judge choices.
+Read the comments in the code to understand:
+- how surplus is calculated
+- how constraints are applied
+- how optimisation redistributes money
 """
 )
 
-st.markdown("---")
-
-# ================= PLANNING HORIZON =================
-st.subheader("1️⃣ Planning horizon")
+# =========================================================
+# 1. PLANNING HORIZON
+# =========================================================
+# Time horizon fixes the TIME over which money can be accumulated
+# All long-term goals are planned within this window
 
 horizon_years = st.slider(
     "For how many years are you planning your life goals?",
     5, 30, 10
 )
 
-st.markdown("---")
+# =========================================================
+# 2. INCOME AND EXPENSES
+# =========================================================
+# These are HARD INPUTS.
+# If expenses exceed income, planning is infeasible.
 
-# ================= INCOME & EXPENSES =================
-st.subheader("2️⃣ Income and unavoidable expenses")
-
-salary = st.number_input(
-    "Monthly income (₹)",
-    min_value=0,
-    step=5000
-)
-
-expenses = st.number_input(
-    "Monthly unavoidable expenses (₹)",
-    min_value=0,
-    step=2000
-)
+salary = st.number_input("Monthly income (₹)", min_value=0, step=5000)
+expenses = st.number_input("Monthly unavoidable expenses (₹)", min_value=0, step=2000)
 
 if salary <= 0:
-    st.warning("Please enter income to continue.")
     st.stop()
 
 if expenses >= salary:
-    st.error("Expenses exceed income. No surplus is available.")
+    st.error("Expenses exceed income. No planning possible.")
     st.stop()
 
+# Base surplus is the starting flexibility BEFORE life conditions
 base_surplus = salary - expenses
 st.success(f"Base monthly surplus: ₹{base_surplus:,.0f}")
 
-st.markdown("---")
-
-# ================= LIFE CONSTRAINTS =================
-st.subheader("3️⃣ Life conditions")
+# =========================================================
+# 3. LIFE CONDITIONS → CONSTRAINT ADJUSTMENTS
+# =========================================================
+# These questions DO NOT change goals.
+# They MODIFY income and expenses, i.e., CONSTRAINTS.
 
 job = st.selectbox(
     "Job stability",
@@ -96,10 +100,13 @@ family = st.selectbox(
     ]
 )
 
-# ================= PENALTY CALCULATION =================
+# ---------------------------------------------------------
+# Compute income and expense penalties
+# ---------------------------------------------------------
 income_penalty = 0.0
 expense_penalty = 0.0
 
+# Income penalties reduce EFFECTIVE income
 if "5%" in job:
     income_penalty += 0.05
 elif "12%" in job:
@@ -110,138 +117,148 @@ if "5%" in health:
 elif "10%" in health:
     income_penalty += 0.10
 
+# Aggressive work boosts income, burnout reduces it
 if "Aggressive" in work:
     income_penalty -= 0.08
 elif "12%" in work:
     income_penalty += 0.12
 
+# Living with family reduces expenses, living away increases them
 if "with family" in family:
     expense_penalty -= 0.05
 else:
     expense_penalty += 0.05
 
+# ---------------------------------------------------------
+# Adjust income and expenses using penalties
+# ---------------------------------------------------------
 adjusted_income = salary * (1 - income_penalty)
 adjusted_expenses = expenses * (1 + expense_penalty)
+
+# REAL usable surplus after applying life constraints
 adjusted_surplus = adjusted_income - adjusted_expenses
 
-st.markdown("### Effect of life conditions")
-st.write(f"Income impact: {income_penalty*100:.1f}%")
-st.write(f"Expense impact: {expense_penalty*100:.1f}%")
-st.info(f"Usable monthly surplus: ₹{adjusted_surplus:,.0f}")
+st.info(f"Usable monthly surplus after life conditions: ₹{adjusted_surplus:,.0f}")
 
 if adjusted_surplus <= 0:
-    st.error("After applying constraints, no usable surplus remains.")
+    st.error("After constraints, no usable surplus remains.")
     st.stop()
 
-st.markdown("---")
-
-# ================= FEASIBLE CAPACITY =================
-st.subheader("4️⃣ Feasible capacity")
+# =========================================================
+# 4. FEASIBLE CAPACITY (HARD CONSTRAINT)
+# =========================================================
+# Salary growth ≈ inflation → real growth ≈ 0
+# So surplus is assumed constant in real terms
 
 feasible_capacity = adjusted_surplus * 12 * horizon_years
 st.success(f"Total money available over {horizon_years} years: ₹{feasible_capacity:,.0f}")
 
-st.markdown("---")
+# =========================================================
+# 5. LIFE GOALS (SOFT CONSTRAINTS)
+# =========================================================
+# Goals are TARGETS, not decisions.
+# The model decides how much can be allocated to each.
 
-# ================= GOALS =================
-st.subheader("5️⃣ Life goals")
+goals = {
+    "Asset creation": st.number_input("Asset creation (₹)", 0, step=100000),
+    "Emergency fund": st.number_input("Emergency fund (₹)", 0, step=50000),
+    "Education / loan repayment": st.number_input("Education / loan repayment (₹)", 0, step=50000),
+    "Marriage & family": st.number_input("Marriage & family (₹)", 0, step=50000),
+    "Social contribution": st.number_input("Social contribution (₹)", 0, step=20000),
+}
 
-goals = {}
-goals["Asset creation"] = st.number_input("Asset creation (₹)", 0, step=100000)
-goals["Emergency fund"] = st.number_input("Emergency fund (₹)", 0, step=50000)
-goals["Education / loan repayment"] = st.number_input("Education / loan repayment (₹)", 0, step=50000)
-goals["Marriage & family"] = st.number_input("Marriage & family (₹)", 0, step=50000)
-goals["Social contribution"] = st.number_input("Social contribution (₹)", 0, step=20000)
+total_goals = sum(goals.values())
 
-total_goal_amount = sum(goals.values())
-
-st.markdown("---")
-
-# ================= IMPORTANCE =================
-st.subheader("6️⃣ Importance of goals")
+# =========================================================
+# 6. IMPORTANCE WEIGHTS
+# =========================================================
+# Importance = how painful it is if a goal is NOT achieved
+# These weights guide where compromise should happen
 
 importance = {}
 for g in goals:
     importance[g] = st.slider(f"Importance of {g}", 1, 10, 5)
 
-st.markdown("---")
+# =========================================================
+# 7. FEASIBILITY CHECK
+# =========================================================
+# If total goals fit within feasible capacity,
+# NO optimisation is needed.
 
-# ================= CHECK FEASIBILITY =================
-st.subheader("7️⃣ Feasibility check")
+if feasible_capacity >= total_goals:
 
-if feasible_capacity >= total_goal_amount:
+    st.success("All goals are achievable under current constraints.")
 
-    st.success("🎉 All goals are achievable under your current assumptions.")
-
-    st.markdown("### Monthly saving plan")
     for g in goals:
         st.write(
-            f"Save **₹{goals[g] / (horizon_years * 12):,.0f} per month** for {g}"
+            f"Save ₹{goals[g] / (horizon_years * 12):,.0f} per month for {g}"
         )
 
 else:
+    st.warning("All goals cannot be achieved together. Optimisation is required.")
 
-    st.warning("⚠️ All goals are not achievable together. An optimized plan is suggested.")
-
-    # ================= OPTIMIZATION =================
+    # =====================================================
+    # 8. OPTIMISATION LOGIC (THIS IS THE CORE)
+    # =====================================================
+    # STEP 1: Guarantee minimum progress to EVERY goal
+    # This avoids completely ignoring any goal
     MIN_PERCENT = 0.35
+
     optimized = {}
-    remaining = feasible_capacity
+    remaining_money = feasible_capacity
 
+    # Allocate minimum guaranteed amount first
     for g in goals:
-        optimized[g] = min(goals[g] * MIN_PERCENT, remaining)
-        remaining -= optimized[g]
+        optimized[g] = min(goals[g] * MIN_PERCENT, remaining_money)
+        remaining_money -= optimized[g]
 
+    # STEP 2: Allocate remaining money based on importance
+    # More important goals get priority
     for g in sorted(goals, key=lambda x: importance[x], reverse=True):
-        if remaining <= 0:
+        if remaining_money <= 0:
             break
-        extra = min(goals[g] - optimized[g], remaining)
+        extra = min(goals[g] - optimized[g], remaining_money)
         optimized[g] += extra
-        remaining -= extra
+        remaining_money -= extra
 
-    # ================= RESULTS TABLE =================
-    result_rows = []
+    # =====================================================
+    # 9. DISPLAY RESULTS
+    # =====================================================
+    rows = []
     for g in goals:
-        achieved_pct = (optimized[g] / goals[g] * 100) if goals[g] > 0 else 0
-        result_rows.append([
+        rows.append([
             g,
             f"₹{goals[g]:,.0f}",
             f"₹{optimized[g]:,.0f}",
-            f"{achieved_pct:.1f}%"
+            f"{(optimized[g] / goals[g] * 100) if goals[g] > 0 else 0:.1f}%"
         ])
 
     st.dataframe(
         pd.DataFrame(
-            result_rows,
-            columns=[
-                "Goal",
-                "Target (₹)",
-                "Allocated (₹)",
-                "Fulfilment (%)"
-            ]
+            rows,
+            columns=["Goal", "Target", "Allocated", "Fulfilment (%)"]
         ),
         use_container_width=True
     )
 
-    st.markdown("### Monthly saving plan (optimized)")
+    st.markdown("### Monthly saving plan (optimised)")
     for g in optimized:
         st.write(
-            f"Save **₹{optimized[g] / (horizon_years * 12):,.0f} per month** for {g}"
+            f"Save ₹{optimized[g] / (horizon_years * 12):,.0f} per month for {g}"
         )
 
-# ================= SAVE RESPONSES =================
-st.markdown("---")
-st.subheader("📥 Classroom response capture")
-
-consent = st.checkbox("I allow my anonymous response to be saved for academic analysis")
+# =========================================================
+# 10. SAVE CLASSROOM RESPONSES
+# =========================================================
+consent = st.checkbox("I allow my anonymous response to be saved")
 
 if consent:
     record = {
         "timestamp": datetime.now(),
         "salary": salary,
         "expenses": expenses,
-        "planning_years": horizon_years,
-        "total_goals": total_goal_amount,
+        "years": horizon_years,
+        "total_goals": total_goals,
         "feasible_capacity": feasible_capacity
     }
 
